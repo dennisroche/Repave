@@ -1,0 +1,47 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>6CAFC0C6-A428-4d30-A9F9-700E829FEA51</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Repave</RootNamespace>
+    <AssemblyName>Repave</AssemblyName>
+    <Name>Repave</Name>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Bootstrap\Convert-IsoToVhd.ps1" />
+    <Compile Include="Bootstrap\Mount-WindowsVHD.ps1" />
+    <Compile Include="Bootstrap\Toggle-FirewallRule.ps1" />
+    <Compile Include="Bootstrap\Using-VHDRegistry.ps1" />
+    <Compile Include="Bootstrap\With-AutorunDisabled.ps1" />
+    <Compile Include="Core\Add-ToPath.ps1" />
+    <Compile Include="Core\Retry.ps1" />
+    <Compile Include="Core\Transcript.ps1" />
+    <Compile Include="Import-Assembly.ps1" />
+    <Compile Include="Repave.psm1" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Bootstrap\" />
+    <Folder Include="Core\" />
+  </ItemGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  <Target Name="Build" />
+</Project>

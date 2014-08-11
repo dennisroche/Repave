@@ -1,0 +1,12 @@
+# Temporary Files
+*/obj/*
+*/bin/*
+
+# Nuget
+*.nupkg
+packages/
+!packages/repositories.config
+
+# User
+*.suo
+*.user

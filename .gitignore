@@ -1,6 +1,7 @@
 # Temporary Files
 */obj/*
 */bin/*
+*.orig
 
 # Nuget
 *.nupkg

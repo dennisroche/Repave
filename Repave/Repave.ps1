@@ -24,7 +24,6 @@ function Init-Repave() {
             Import-Assembly "Microsoft.Wim" | Out-Null
         }
 
-        
     Pop-Location
 
 }

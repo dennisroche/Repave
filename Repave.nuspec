@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+    <metadata>
+        <id>Repave</id>
+        <version>0.1.0</version>
+        <authors>Dennis Roche</authors>
+        <projectUrl>https://github.com/dennisroche/Repave</projectUrl>
+        <iconUrl>https://raw.github.com/dennisroche/Repave/master/icon-sm.png</iconUrl>
+        <requireLicenseAcceptance>false</requireLicenseAcceptance>
+        <description>A PowerShell module that allows you to easily create a new Hyper-V Virtual Hard Disk with Microsoft Windows, configurable with a terse script</description>
+        <copyright />
+        <tags>repave, native-boot, hyper-v, powershell</tags>
+        <dependencies>
+            <dependency id="Microsoft.Wim" version="1.0" />
+            <dependency id="Microsoft.Win32Ex" version="1.0" />
+        </dependencies>
+    </metadata>
+    <files />
+</package>

@@ -80,4 +80,4 @@ FAQ
 Icon
 ---------------
 
-[Leaf](http://thenounproject.com/term/leaf/30788) designed by [Ryan Canning](http://thenounproject.com/ryancanzo/) from The Noun Project
+[Mosaic](http://thenounproject.com/term/mosaic/17953/) designed by [Juan Pablo Bravo](http://thenounproject.com/bravo/) from The Noun Project

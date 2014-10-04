@@ -90,7 +90,7 @@ function Write-WimImageToDrive {
     )
 
     $WimMessageCallback = {
-        param ( 
+        param (
             [Microsoft.Wim.WimMessageType]$messageType,
             [PSObject]$message,
             [PSObject]$userData
@@ -98,8 +98,9 @@ function Write-WimImageToDrive {
 
         if ($messageType -eq [Microsoft.Wim.WimMessageType]::Progress) {
             $progressMessage = [Microsoft.Wim.WimMessageProgress]$message;
-            Write-Progress -Activity "Applying Image" -PercentComplete $progressMessage.PercentComplete -SecondsRemaining $progressMessage.EstimatedTimeRemaining
-        } 
+            #Write-Progress -Activity "Applying Image" -PercentComplete $progressMessage.PercentComplete -SecondsRemaining $progressMessage.EstimatedTimeRemaining
+            Write-Output "Applying Image: $($progressMessage.PercentComplete) $($progressMessage.EstimatedTimeRemaining)"
+        }
         elif ($messageType -eq [Microsoft.Wim.WimMessageType]::Warning) {
             $warningMessage = [Microsoft.Wim.WimMessageWarning]$message;
             Write-Warning "$($warningMessage.Path) - $($warningMessage.Win32ErrorCode)"
@@ -128,21 +129,23 @@ function Write-WimImageToDrive {
         $wimImageHandle = [Microsoft.Wim.WimgApi]::LoadImage($wimFileHandle, 1)
   
         [Microsoft.Wim.WimgApi]::RegisterMessageCallback($wimFileHandle, $WimMessageCallback)
-        [Microsoft.Wim.WimgApi]::ApplyImage($wimImageHandle, $DriveLetter, [Microsoft.Wim.WimApplyImageOptions]::None);
+        [Microsoft.Wim.WimgApi]::ApplyImage($wimImageHandle, $DriveLetter, [Microsoft.Wim.WimApplyImageOptions]::None)
+
     } catch {
         Throw "Failed to apply Wim Image. $($_.Exception.Message)"
     } finally {
-    
+
         if ($wimImageHandle -ne $null) {
             $wimImageHandle.Close()
             $wimImageHandle = $null
         }
-    
+
         if ($wimFileHandle -ne $null) {
             [Microsoft.Wim.WimgApi]::UnregisterMessageCallback($wimFileHandle, $WimMessageCallback)
             $wimFileHandle.Close()
             $wimFileHandle = $null
         }
     }
+
 }
 

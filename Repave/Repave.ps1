@@ -19,12 +19,11 @@ function Init-Repave() {
             $module = Import-Module $_ -PassThru -Force
         }
 
-        Import-Nuget -PackageConfig ".\packages.config" -RestorePackages {
-            Import-Assembly ".\packages\Microsoft.Win32Ex.1.0.5137.22482\lib\net20\Microsoft.Win32Ex.dll" | Out-Null
-            Import-Assembly ".\packages\Microsoft.Wim.1.0.5231.24127\lib\net35-Client\Microsoft.Wim.dll" | Out-Null
+        Restore-NuGetPackages -PackageConfig ".\packages.config" {
+            Import-Assembly "Microsoft.Win32Ex" | Out-Null
+            Import-Assembly "Microsoft.Wim" | Out-Null
         }
 
-        Write-Verbose "Repave Commands $(Get-Command -Module Repave* | Sort-Object ModuleName | Format-Table -AutoSize -Property ModuleName,Name,CommandType | Out-String)"
         
     Pop-Location
 

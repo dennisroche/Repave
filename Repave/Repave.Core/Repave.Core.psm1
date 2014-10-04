@@ -2,4 +2,4 @@
 
 Get-ChildItem $PSScriptRoot -Recurse -Include *.ps1 | %{ . $_.FullName }
 
-Export-ModuleMember -Function Init, Import-*, New-Gen2VHD, Write-WindowsIsoToVhd, Add-ToPath, Retry
+Export-ModuleMember -Function Init, Import-Assembly, Restore-NuGetPackages, Invoke-Repave, New-Gen2VHD, Write-WindowsIsoToVhd, Add-ToPath, Retry

@@ -1,21 +1,21 @@
 function Invoke-Repave {
     [CmdletBinding()]
     param(
-        [Parameter(Position=0, Mandatory)]
+        [Parameter(Mandatory)]
+        [ScriptBlock]$InstallScript,
+
+        [Parameter(ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [ValidateNotNullorEmpty()]
         [ValidateScript({ Test-Path $_ })]
         [ValidatePattern("\.(a)?vhd(x)?$")]
-        [string]$Vhdpath,
-
-        [Parameter(Position=1, Mandatory)]
-        [ScriptBlock]$InstallScript
+        [string]$VhdPath
     )
 
     try {
 
         Start-Transcript "$PSSessionApplicationName-repave.log"
-        
-        # Mount VHD to apply Windows image
+
+        # Mount VHD to begin Repave
         Mount-DiskImage -ImagePath (Resolve-Path $VhdPath) -Access ReadWrite | Out-Null
         $drive = Get-VhdDriveLetter (Resolve-Path $VhdPath) "Windows System"
 

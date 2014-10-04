@@ -1,12 +1,12 @@
 function Write-WindowsIsoToVhd {
     [CmdletBinding()]
     param (
-        [Parameter(Position=0, Mandatory)]
+        [Parameter(Mandatory)]
         [ValidateScript({ Test-Path $_ })]
         [ValidatePattern("\.iso$")]
-        [string]$IsoPath,
+        [string]$Iso,
 
-        [Parameter(Position=1, Mandatory)]
+        [Parameter(ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [ValidateScript({ Test-Path $_ })]
         [ValidatePattern("\.vhd(x)?$")]
         [string]$VhdPath
@@ -14,7 +14,7 @@ function Write-WindowsIsoToVhd {
 
     try {
         # Mount ISO and select the install.wim file
-        $openIso = Mount-DiskImage -ImagePath (Resolve-Path $IsoPath) -StorageType ISO -PassThru | Get-Volume
+        $openIso = Mount-DiskImage -ImagePath (Resolve-Path $Iso) -StorageType ISO -PassThru | Get-Volume
         $wimPath = "$($openIso.DriveLetter):\sources\install.wim"
         
         if (!(Test-Path $wimPath)) {
@@ -65,10 +65,12 @@ function Write-WindowsIsoToVhd {
             $current = Get-(Get-ItemProperty "VHD:\Select" -Name Current).Current
             $path = "VHD:\ControlSet00$current\Services\SharedAccess\Parameters\FirewallPolicy\FirewallRules"
         }
+
+        return $VhdPath
         
     } finally {
         Sleep -Seconds 5
-        Dismount-DiskImage -ImagePath (Resolve-Path $IsoPath) -ErrorAction SilentlyContinue | Out-Null
+        Dismount-DiskImage -ImagePath (Resolve-Path $Iso) -ErrorAction SilentlyContinue | Out-Null
         Dismount-DiskImage -ImagePath (Resolve-Path $VhdPath) -ErrorAction SilentlyContinue | Out-Null
     }
 }

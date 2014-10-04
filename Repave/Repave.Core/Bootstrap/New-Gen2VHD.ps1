@@ -5,7 +5,6 @@
 function New-Gen2VHD {
     [CmdletBinding()]
     param (
-        [Parameter()]
         [ValidateScript({ -not (Test-Path $_) })]
         [ValidatePattern("\.vhd(x)?$")]
         [string]$VhdPath,

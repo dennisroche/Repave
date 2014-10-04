@@ -17,7 +17,7 @@ function Write-WindowsIsoToVhd {
         $openIso = Mount-DiskImage -ImagePath (Resolve-Path $IsoPath) -StorageType ISO -PassThru | Get-Volume
         $wimPath = "$($openIso.DriveLetter):\sources\install.wim"
         
-        if (!(Test-Path $WimPath)) {
+        if (!(Test-Path $wimPath)) {
             Throw "The specified ISO does not appear to be valid Windows installation media."
         }
 
@@ -49,17 +49,28 @@ function Write-WindowsIsoToVhd {
             } else {
                 $skuFamily = "Unknown"
             }
-
-            $vhdFinalName = " $(Get-Date -f MM-dd-yyyy_HH_mm_ss)_$($buildLabEx)_$($skuFamily)_$($editionId)_$($openImage.ImageDefaultLanguage)"
         }
 
+        $vhdFinalName = " $(Get-Date -f MM-dd-yyyy_HH_mm_ss)_$($buildLabEx)_$($skuFamily)_$($editionId)_$($openImage.ImageDefaultLanguage)"
+        
         $VhdPath = Rename-Item -Path (Resolve-Path $VhdPath).Path -NewName $vhdFinalName -Force
 
-    } finally {
-        Dismount-DiskImage -ImagePath (Resolve-Path $IsoPath)
-    }
+        # Configure Windows to allow Remote Powershell
+        Using-VHDRegistry "SOFTWARE" $volume { 
+            $path = "VHD:\Microsoft\Windows\CurrentVersion\Policies\system"
+            Set-ItemProperty $path -Name LocalAccountTokenFilterPolicy -Value 0
+        }
 
-    return $VhdPath
+        Using-VHDRegistry "SYSTEM" $volume { 
+            $current = Get-(Get-ItemProperty "VHD:\Select" -Name Current).Current
+            $path = "VHD:\ControlSet00$current\Services\SharedAccess\Parameters\FirewallPolicy\FirewallRules"
+        }
+        
+    } finally {
+        Sleep -Seconds 5
+        Dismount-DiskImage -ImagePath (Resolve-Path $IsoPath) -ErrorAction SilentlyContinue | Out-Null
+        Dismount-DiskImage -ImagePath (Resolve-Path $VhdPath) -ErrorAction SilentlyContinue | Out-Null
+    }
 }
 
 function Write-WimImageToDrive {
@@ -119,7 +130,7 @@ function Write-WimImageToDrive {
         [Microsoft.Wim.WimgApi]::RegisterMessageCallback($wimFileHandle, $WimMessageCallback)
         [Microsoft.Wim.WimgApi]::ApplyImage($wimImageHandle, $DriveLetter, [Microsoft.Wim.WimApplyImageOptions]::None);
     } catch {
-        Throw "Failed to create apply Wim Image. $($_.Exception.Message)"
+        Throw "Failed to apply Wim Image. $($_.Exception.Message)"
     } finally {
     
         if ($wimImageHandle -ne $null) {

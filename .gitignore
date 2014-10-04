@@ -7,6 +7,12 @@
 packages/
 !packages/repositories.config
 
+# Local
+Drivers/*
+ISOs/*
+*.vhd
+*.vhdx
+
 # User
 *.suo
 *.user

@@ -14,15 +14,15 @@ function Retry {
     $attempts = 0
     
     do {
-	    try {
-		    &$script
-		} catch {
+        try {
+            &$script
+        } catch {
             $attempts = $attempts + 1
-		    if ($attempts -gt $maxAttempts){
-			    Throw
-		    }
-		    Start-Sleep -Seconds $secondsBeforeRetrying
-	    }
+            if ($attempts -gt $maxAttempts){
+                Throw
+            }
+            Start-Sleep -Seconds $secondsBeforeRetrying
+        }
     } while ($true)
  
 }

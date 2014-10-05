@@ -14,6 +14,8 @@ function Import-Assembly {
     # Load the DLL as a byte stream so that the Powershell console doesn't lock/hold a reference
     $fileStream = $null
     try {
+        Write-Verbose "Loading assembly '$dll'"
+
         $fileStream = ([System.IO.FileInfo] (Get-Item $dll)).OpenRead()
         
         $assemblyBytes = New-Object byte[] $fileStream.Length

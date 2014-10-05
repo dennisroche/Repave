@@ -1,7 +1,7 @@
-function Start-Transcript() {
+function Start-Transcript {
     [CmdletBinding()]
     param(
-        [Parameter(Position=0, Mandatory=$true)]
+        [Parameter(Position=0, Mandatory)]
         [ValidatePattern("\.log$")]
         [string]$filename
     )
@@ -11,7 +11,7 @@ function Start-Transcript() {
     }
 }
 
-function End-Transcript() {
+function Stop-Transcript {
     if ($Host.Name -ne "Windows PowerShell ISE Host") {
         Stop-Transcript
     }

@@ -5,9 +5,10 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>6CAFC0C6-A428-4d30-A9F9-700E829FEA51</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>MyApplication</RootNamespace>
-    <AssemblyName>MyApplication</AssemblyName>
+    <RootNamespace>Repave</RootNamespace>
+    <AssemblyName>Repave</AssemblyName>
     <Name>Repave</Name>
+    <DebugArguments>-Verbose -Debug</DebugArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -27,27 +28,26 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Folder Include="Repave.Core\" />
-    <Folder Include="Repave.Core\Bootstrap\" />
-    <Folder Include="Repave.Core\Utilities\" />
+    <Folder Include="HyperV\" />
+    <Folder Include="Core\" />
+    <Folder Include="Infrastructure\" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="packages.config" />
-    <Compile Include="Repave.Core\Bootstrap\Get-VhdDriveLetter.ps1" />
-    <Compile Include="Repave.Core\Bootstrap\New-Gen2VHD.ps1" />
-    <Compile Include="Repave.Core\Bootstrap\Toggle-FirewallRule.ps1" />
-    <Compile Include="Repave.Core\Bootstrap\Using-VHDRegistry.ps1" />
-    <Compile Include="Repave.Core\Bootstrap\With-AutorunDisabled.ps1" />
-    <Compile Include="Repave.Core\Bootstrap\Write-WindowsIsoToVhd.ps1" />
-    <Compile Include="Repave.Core\Import-Assembly.ps1" />
-    <Compile Include="Repave.Core\Invoke-Repave.ps1" />
-    <Compile Include="Repave.Core\Repave.Core.psd1" />
-    <Compile Include="Repave.Core\Repave.Core.psm1" />
-    <Compile Include="Repave.Core\Restore-NuGetPackages.ps1" />
-    <Compile Include="Repave.Core\Utilities\Add-ToPath.ps1" />
-    <Compile Include="Repave.Core\Utilities\Retry.ps1" />
-    <Compile Include="Repave.Core\Utilities\Transcript.ps1" />
-    <Compile Include="Repave.ps1" />
+    <Compile Include="HyperV\Get-VhdDriveLetter.ps1" />
+    <Compile Include="HyperV\New-Gen2Vhd.ps1" />
+    <Compile Include="HyperV\Toggle-FirewallRule.ps1" />
+    <Compile Include="HyperV\Using-VHDRegistry.ps1" />
+    <Compile Include="HyperV\With-AutorunDisabled.ps1" />
+    <Compile Include="HyperV\Write-WindowsIsoToVhd.ps1" />
+    <Compile Include="Infrastructure\Import-Assembly.ps1" />
+    <Compile Include="Invoke-Repave.ps1" />
+    <Compile Include="Repave.psd1" />
+    <Compile Include="Repave.psm1" />
+    <Compile Include="Infrastructure\Restore-NuGetPackages.ps1" />
+    <Compile Include="Core\Add-ToPath.ps1" />
+    <Compile Include="Infrastructure\Retry.ps1" />
+    <Compile Include="Infrastructure\Transcript.ps1" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <Target Name="Build" />

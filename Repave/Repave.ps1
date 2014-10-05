@@ -1,29 +1,11 @@
-#Requires -Version 3.0
-#Requires -RunAsAdministra
+[CmdletBinding()]
+param()
 
-function Init-Repave() {
-    [CmdletBinding()]
-    param()
-
-    $ErrorActionPreference = 'Stop'
-    trap {
-        $Host.UI.WriteErrorLine($_)
-        Pop-Location
-        Exit 1
-    }
-
-    # Import Repave
-    Push-Location $PSScriptRoot
-        
-        Get-ChildItem -Path . -Include "Repave*" -Directory | %{ 
-            $module = Import-Module $_ -PassThru -Force
-        }
-
-        Restore-NuGetPackages -PackageConfig ".\packages.config" {
-            Import-Assembly "Microsoft.Win32Ex" | Out-Null
-            Import-Assembly "Microsoft.Wim" | Out-Null
-        }
-
-    Pop-Location
-
+Get-ChildItem $PSScriptRoot -Recurse -Include *.ps1 -Exclude 'Repave.ps1' | %{ 
+    Write-Verbose "Dot-sourcing the script file '$($_.FullName)'"
+    . $_.FullName 
 }
+
+Restore-NuGetPackages "$PSScriptRoot\packages.config"
+Import-Assembly "Microsoft.Win32Ex" | Out-Null
+Import-Assembly "Microsoft.Wim" | Out-Null

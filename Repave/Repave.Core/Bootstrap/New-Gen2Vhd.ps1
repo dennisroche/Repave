@@ -1,8 +1,4 @@
-#Requires -version 4.0
-#Requires -modules Hyper-V,Storage
-#Requires -RunAsAdministrator
-
-function New-Gen2VHD {
+function New-Gen2Vhd {
     [CmdletBinding()]
     param (
         [ValidateScript({ -not (Test-Path $_) })]

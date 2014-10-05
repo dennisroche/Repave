@@ -31,20 +31,18 @@ Minimum example
 To get started all you need is this in a `.ps1` file:
 
 ```powershell
-#Requires -Version 3.0
+#Repave
+#Requires –Version 4
 #Requires -RunAsAdministrator
+[CmdletBinding()]
+param()
 
 Push-Location $PSScriptRoot
-
-. .\Repave\Repave.ps1
-Init-Repave
+Import-Module .\Repave\Repave.psd1
 
 $iso = ".\ISOs\en-gb_windows_8.1_professional_n_vl_with_update_x64_dvd_4050338.iso"
-$vhdPath = New-Gen2VHD -size 25GB
-Write-WindowsIsoToVhd $iso $vhdPath
-
-Invoke-Repave $vhdPath {
-	# Stuff to install
+New-Gen2Vhd -Size 25GB | Write-WindowsIsoToVhd -Iso $iso | Invoke-Repave {
+    # Stuff to install
 }
 ```	
 

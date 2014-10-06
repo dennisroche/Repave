@@ -13,13 +13,15 @@ function Write-WindowsIsoToVhd {
     )
 
     try {
+
         # Mount ISO and select the install.wim file
         $openIso = Mount-DiskImage -ImagePath (Resolve-Path $Iso) -StorageType ISO -PassThru | Get-Volume
         $wimPath = "$($openIso.DriveLetter):\sources\install.wim"
-        
         if (!(Test-Path $wimPath)) {
             Throw "The specified ISO does not appear to be valid Windows installation media."
         }
+
+        Write-Verbose "Mounted Microsoft Windows ISO at $($openIso.DriveLetter):\"
 
         # Mount VHD to apply Windows image
         Mount-DiskImage -ImagePath (Resolve-Path $VhdPath) -Access ReadWrite | Out-Null
@@ -52,7 +54,6 @@ function Write-WindowsIsoToVhd {
         }
 
         $vhdFinalName = " $(Get-Date -f MM-dd-yyyy_HH_mm_ss)_$($buildLabEx)_$($skuFamily)_$($editionId)_$($openImage.ImageDefaultLanguage)"
-        
         $VhdPath = Rename-Item -Path (Resolve-Path $VhdPath).Path -NewName $vhdFinalName -Force
 
         # Configure Windows to allow Remote Powershell
@@ -69,7 +70,6 @@ function Write-WindowsIsoToVhd {
         return $VhdPath
         
     } finally {
-        Sleep -Seconds 5
         Dismount-DiskImage -ImagePath (Resolve-Path $Iso) -ErrorAction SilentlyContinue | Out-Null
         Dismount-DiskImage -ImagePath (Resolve-Path $VhdPath) -ErrorAction SilentlyContinue | Out-Null
     }
@@ -91,6 +91,8 @@ function Write-WimImageToDrive {
 
     )
 
+    $ProgressPreference = 'Continue'
+
     $WimMessageCallback = {
         param (
             [Microsoft.Wim.WimMessageType]$messageType,
@@ -100,8 +102,7 @@ function Write-WimImageToDrive {
 
         if ($messageType -eq [Microsoft.Wim.WimMessageType]::Progress) {
             $progressMessage = [Microsoft.Wim.WimMessageProgress]$message;
-            #Write-Progress -Activity "Applying Image" -PercentComplete $progressMessage.PercentComplete -SecondsRemaining $progressMessage.EstimatedTimeRemaining
-            Write-Output "Applying Image: $($progressMessage.PercentComplete) $($progressMessage.EstimatedTimeRemaining)"
+            Write-Progress -Activity "Applying Image" -PercentComplete $progressMessage.PercentComplete -SecondsRemaining $progressMessage.EstimatedTimeRemaining
         }
         elif ($messageType -eq [Microsoft.Wim.WimMessageType]::Warning) {
             $warningMessage = [Microsoft.Wim.WimMessageWarning]$message;
@@ -120,23 +121,29 @@ function Write-WimImageToDrive {
 
     try {
         # Get a native handle on *.wim container
+        Write-Verbose "[Microsoft.Wim] Loading '$WimPath'"
         $wimFileHandle = [Microsoft.Wim.WimgApi]::CreateFile($WimPath, [Microsoft.Wim.WimFileAccess]::Read, 
             [Microsoft.Wim.WimCreationDisposition]::OpenExisting, [Microsoft.Wim.WimCreateFileOptions]::None, 
             [Microsoft.Wim.WimCompressionType]::None)
 
         # Always set a temporary path
         [Microsoft.Wim.WimgApi]::SetTemporaryPath($wimFileHandle, $env:temp)
+        
+        # Register callback to get progress information as applying an image can take several minutes
+        [Microsoft.Wim.WimgApi]::RegisterMessageCallback($wimFileHandle, $WimMessageCallback)
+        
+        $wimInformation = [Microsoft.Wim.WimgApi]::GetImageInformation($wimFileHandle)
 
         $imageCount = [Microsoft.Wim.WimgApi]::GetImageCount($wimFileHandle)
         $wimImageHandle = [Microsoft.Wim.WimgApi]::LoadImage($wimFileHandle, 1)
   
-        [Microsoft.Wim.WimgApi]::RegisterMessageCallback($wimFileHandle, $WimMessageCallback)
+        # Apply image to drive
         [Microsoft.Wim.WimgApi]::ApplyImage($wimImageHandle, $DriveLetter, [Microsoft.Wim.WimApplyImageOptions]::None)
 
     } catch {
-        Throw "Failed to apply Wim Image. $($_.Exception.Message)"
+        Throw "Failed to apply WIM Image. $($_.Exception.Message)"
     } finally {
-
+        
         if ($wimImageHandle -ne $null) {
             $wimImageHandle.Close()
             $wimImageHandle = $null

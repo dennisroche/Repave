@@ -17,7 +17,7 @@ function New-Gen2Vhd {
         [ValidateSet(512, 4096)]
         [Uint32]$PhysicalSectorSize=4096
     )
-    
+
     if ($VhdPath -eq '') {
         $guid = [Guid]::NewGuid()
         $VhdPath = ".\$guid.vhdx"
@@ -25,21 +25,37 @@ function New-Gen2Vhd {
 
     try {
 
-        # New-VHD requires the Hyper-V extensions
-        New-VHD -Path $VhdPath -SizeBytes $Size -Dynamic -BlockSizeBytes $BlockSize -LogicalSectorSizeBytes $LogicalSectorSize -PhysicalSectorSizeBytes $PhysicalSectorSize | Out-Null
+        # Create VHD container
+        $vhdOptions = @{
+            Path = $VhdPath
+            SizeBytes = $Size
+            Dynamic = $true
+            BlockSizeBytes = $BlockSize
+            LogicalSectorSizeBytes = $LogicalSectorSize
+            PhysicalSectorSizeBytes = $PhysicalSectorSize
+        }
 
+        Write-Verbose "Creating Hyper-V Virtual Disk (VHD) $($vhdOptions | Format-Table | Out-String)"
+        New-VHD @vhdOptions | Out-Null
+
+        # Mount VHD
+        Write-Verbose "Mounting VHD '$VhdPath'"
         $disk = Mount-DiskImage -ImagePath (Resolve-Path $VhdPath) -Access ReadWrite
         $diskNumber = (Get-DiskImage (Resolve-Path $VhdPath) | Get-Disk).Number
 
-        # Initialize GPT partition
+        # Initialise GPT partition
+        Write-Verbose "Initialise GPT partition"
         Initialize-Disk -Number $diskNumber -PartitionStyle GPT | Out-Null
-        
+
         # GPT disks that are used to boot the Windows operating system, the Extensible Firmware Interface (EFI) 
         # system partition must be the first partition on the disk, followed by the Microsoft Reserved partition.
+        Write-Verbose "Create Extensible Firmware Interface (EFI) partition"
         New-EfiPartition -DiskNumber $diskNumber -Size 100MB | Out-Null
 
         # Initial Size of MSR is 32 MB on disks smaller than 16 GB and 128 MB on other disks. 
-        # The MSR partition is not visible within Microsoft Windows Disk Management snap-in, however is listed with Microsoft Diskpart commandline utility.
+        # The MSR partition is not visible within Microsoft Windows Disk Management snap-in, however 
+        # is listed with Microsoft Diskpart commandline utility.
+        Write-Verbose "Create ?(MSR) partition"
         if ($Size -lt 16GB) {
             New-MsrPartition -Disknumber $diskNumber -Size 32MB
         } else {
@@ -47,14 +63,16 @@ function New-Gen2Vhd {
         }
         
         # Create OS partition
+        Write-Verbose "Create OS partition"
         New-Partition -DiskNumber $diskNumber -UseMaximumSize -AssignDriveLetter | 
-          Format-Volume -FileSystem NTFS -NewFileSystemLabel "Windows System" -confirm:$false | Out-Null
+          Format-Volume -FileSystem NTFS -NewFileSystemLabel "System" -confirm:$false | Out-Null
 
     } catch {
         Throw "Failed to create $VhdPath. $($_.Exception.Message)"
     } finally {
-        Sleep -Seconds 5
-        Dismount-DiskImage -ImagePath (Resolve-Path $VhdPath) -ErrorAction SilentlyContinue | Out-Null
+        if ($VhdPath -ne '') {
+            Dismount-DiskImage -ImagePath (Resolve-Path $VhdPath) -ErrorAction SilentlyContinue | Out-Null
+        }
     }
 
     return $VhdPath

@@ -3,7 +3,7 @@
 Repave
 ==========
 
-**NB:** This is **pre-release**, still under active development. If you want to contribute, please open an [issue](https://github.com/dennisroche/Repave/issues) or fork it and open a pull request.
+**NB:** This is **pre-pre-release**, still under <u>active development</u>. 
 
 Repave is a PowerShell module that allows you to easily create a new Hyper-V Virtual Hard Disk (`*.vhdx`), apply Microsoft® Windows 8.0/8.1 and 10 image, and then configure that installation with a terse script using additional `Repave.*` modules and [OneGet](https://github.com/OneGet/).
 

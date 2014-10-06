@@ -42,8 +42,8 @@
     <Compile Include="HyperV\Write-WindowsIsoToVhd.ps1" />
     <Compile Include="Infrastructure\Import-Assembly.ps1" />
     <Compile Include="Invoke-Repave.ps1" />
+    <Compile Include="Repave.ps1" />
     <Compile Include="Repave.psd1" />
-    <Compile Include="Repave.psm1" />
     <Compile Include="Infrastructure\Restore-NuGetPackages.ps1" />
     <Compile Include="Core\Add-ToPath.ps1" />
     <Compile Include="Infrastructure\Retry.ps1" />

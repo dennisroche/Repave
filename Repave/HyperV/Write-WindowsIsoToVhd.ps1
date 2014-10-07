@@ -25,7 +25,10 @@ function Write-WindowsIsoToVhd {
 
         # Mount VHD to apply Windows image
         Mount-DiskImage -ImagePath (Resolve-Path $VhdPath) -Access ReadWrite | Out-Null
-        $drive = Get-VhdDriveLetter (Resolve-Path $VhdPath) "Windows System"
+        $drive = Get-VhdDriveLetter (Resolve-Path $VhdPath)
+        if ($drive -eq '') {
+            Throw "Cannot find mount point $VhdPath"
+        }
 
         Write-WimImageToDrive $wimPath $drive
 

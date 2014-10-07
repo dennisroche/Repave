@@ -11,7 +11,6 @@ function Invoke-Repave {
         [ScriptBlock]$InstallScript
     )
 
-    Write-Output "Hello!"
     &$InstallScript
 
 }

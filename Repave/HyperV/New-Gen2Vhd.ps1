@@ -43,8 +43,8 @@ function New-Gen2Vhd {
         $disk = Mount-DiskImage -ImagePath (Resolve-Path $VhdPath) -Access ReadWrite
         $diskNumber = (Get-DiskImage (Resolve-Path $VhdPath) | Get-Disk).Number
 
-        # Initialise GPT partition
-        Write-Verbose "Initialise GPT partition"
+        # Initialise GUID Partition Table (GPT)
+        Write-Verbose "Initialise GUID Partition Table (GPT)"
         Initialize-Disk -Number $diskNumber -PartitionStyle GPT | Out-Null
 
         # GPT disks that are used to boot the Windows operating system, the Extensible Firmware Interface (EFI) 
@@ -55,13 +55,13 @@ function New-Gen2Vhd {
         # Initial Size of MSR is 32 MB on disks smaller than 16 GB and 128 MB on other disks. 
         # The MSR partition is not visible within Microsoft Windows Disk Management snap-in, however 
         # is listed with Microsoft Diskpart commandline utility.
-        Write-Verbose "Create ?(MSR) partition"
+        Write-Verbose "Create Microsoft Reserved Partition (MSR) partition"
         if ($Size -lt 16GB) {
             New-MsrPartition -Disknumber $diskNumber -Size 32MB
         } else {
             New-MsrPartition -Disknumber $diskNumber -Size 128MB
         }
-        
+
         # Create OS partition
         Write-Verbose "Create OS partition"
         New-Partition -DiskNumber $diskNumber -UseMaximumSize -AssignDriveLetter | 
@@ -108,6 +108,5 @@ function New-MsrPartition {
         [UInt64]$Size=32GB
     )
 
-    $partition = New-Partition -DiskNumber $diskNumber -GptType '{e3c9e316-0b5c-4db8-817d-f92df00215ae}' -Size $Size
-    $partitionNumber = $partition.PartitionNumber
+    New-Partition -DiskNumber $diskNumber -GptType '{e3c9e316-0b5c-4db8-817d-f92df00215ae}' -Size $Size | Out-Null
 }

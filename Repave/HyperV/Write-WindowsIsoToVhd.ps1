@@ -13,7 +13,6 @@ function Write-WindowsIsoToVhd {
     )
 
     try {
-
         # Mount ISO and select the install.wim file
         $openIso = Mount-DiskImage -ImagePath (Resolve-Path $Iso) -StorageType ISO -PassThru | Get-Volume
         $wimPath = "$($openIso.DriveLetter):\sources\install.wim"
@@ -40,7 +39,7 @@ function Write-WindowsIsoToVhd {
             $buildLabEx = $currentVersion.BuildLabEx
             $installType = $currentVersion.InstallationType
             $editionId = $currentVersion.EditionID
-            
+
             # Is this ServerCore?
             if ($installType -ilike "CORE") {
                 $editionId += "Core"
@@ -71,7 +70,7 @@ function Write-WindowsIsoToVhd {
         }
 
         return $VhdPath
-        
+
     } finally {
         Dismount-DiskImage -ImagePath (Resolve-Path $Iso) -ErrorAction SilentlyContinue | Out-Null
         Dismount-DiskImage -ImagePath (Resolve-Path $VhdPath) -ErrorAction SilentlyContinue | Out-Null
@@ -90,30 +89,29 @@ function Write-WimImageToDrive {
         [Parameter(Position=1, Mandatory)]
         [ValidateScript({Test-Path "$_\"})]
         [ValidatePattern("^[A-Z]?:$")]
-        [string]$DriveLetter
+        [string]$Drive
 
     )
 
     $ProgressPreference = 'Continue'
 
-    $WimMessageCallback = {
+    $wimMessageCallback = {
         param (
             [Microsoft.Wim.WimMessageType]$messageType,
             [PSObject]$message,
             [PSObject]$userData
         )
 
-        if ($messageType -eq [Microsoft.Wim.WimMessageType]::Progress) {
-            $progressMessage = [Microsoft.Wim.WimMessageProgress]$message;
-            Write-Progress -Activity "Applying Image" -PercentComplete $progressMessage.PercentComplete -SecondsRemaining $progressMessage.EstimatedTimeRemaining
-        }
-        elif ($messageType -eq [Microsoft.Wim.WimMessageType]::Warning) {
-            $warningMessage = [Microsoft.Wim.WimMessageWarning]$message;
-            Write-Warning "$($warningMessage.Path) - $($warningMessage.Win32ErrorCode)"
-        }
-        elif ($messageType -eq [Microsoft.Wim.WimMessageType]::Error) {
-            $errorMessage = [Microsoft.Wim.WimMessageError]$message;
-            Write-Warning "$($errorMessage.Path) - $($errorMessage.Win32ErrorCode)"
+        $imageName = $userData
+
+        if ($messageType -eq 'Process') {
+            Write-Verbose "[$imageName] Writing file '$($message.Path)'"
+        } elif ($messageType -eq 'Progress') {
+            Write-Progress -Activity "Applying $imageName" -PercentComplete $message.PercentComplete -SecondsRemaining $message.EstimatedTimeRemaining
+        } elif ($messageType -eq 'Warning') {
+            Write-Warning "[$imageName] $($message.Path) - $($message.Win32ErrorCode)"
+        } elif ($messageType -eq 'Error') {
+            Write-Error "[$imageName] $($message.Path) - $($message.Win32ErrorCode)"
         }
 
         return [Microsoft.Wim.WimMessageResult]::Success
@@ -121,6 +119,7 @@ function Write-WimImageToDrive {
 
     $wimFileHandle = $null
     $wimImageHandle = $null
+    $wimCallbackId = -1
 
     try {
         # Get a native handle on *.wim container
@@ -131,29 +130,30 @@ function Write-WimImageToDrive {
 
         # Always set a temporary path
         [Microsoft.Wim.WimgApi]::SetTemporaryPath($wimFileHandle, $env:temp)
-        
-        # Register callback to get progress information as applying an image can take several minutes
-        [Microsoft.Wim.WimgApi]::RegisterMessageCallback($wimFileHandle, $WimMessageCallback)
-        
-        $wimInformation = [Microsoft.Wim.WimgApi]::GetImageInformation($wimFileHandle)
 
-        $imageCount = [Microsoft.Wim.WimgApi]::GetImageCount($wimFileHandle)
         $wimImageHandle = [Microsoft.Wim.WimgApi]::LoadImage($wimFileHandle, 1)
-  
-        # Apply image to drive
-        [Microsoft.Wim.WimgApi]::ApplyImage($wimImageHandle, $DriveLetter, [Microsoft.Wim.WimApplyImageOptions]::None)
+        [xml]$wimInformation = ([Microsoft.Wim.WimgApi]::GetImageInformation($wimFileHandle).CreateNavigator().InnerXml)
+        $wimImageName = $wimInformation.WIM.IMAGE.NAME
+
+        Write-Verbose "Applying Windows Image '$wimImageName'"
+
+        # Register callback to get progress information as applying an image can take several minutes
+        #$wimCallbackId = [Microsoft.Wim.WimgApi]::RegisterMessageCallback($wimFileHandle, $wimMessageCallback, $wimImageName)
+        [Microsoft.Wim.WimgApi]::ApplyImage($wimImageHandle, $Drive, [Microsoft.Wim.WimApplyImageOptions]::Verify)
 
     } catch {
         Throw "Failed to apply WIM Image. $($_.Exception.Message)"
     } finally {
-        
+        if ($wimCallbackId -ge 0) {
+           [Microsoft.Wim.WimgApi]::UnregisterMessageCallback($wimFileHandle, $wimMessageCallback)
+        }
+
         if ($wimImageHandle -ne $null) {
             $wimImageHandle.Close()
             $wimImageHandle = $null
         }
 
         if ($wimFileHandle -ne $null) {
-            [Microsoft.Wim.WimgApi]::UnregisterMessageCallback($wimFileHandle, $WimMessageCallback)
             $wimFileHandle.Close()
             $wimFileHandle = $null
         }

@@ -12,6 +12,8 @@ function Write-WindowsIsoToVhd {
         [string]$VhdPath
     )
 
+    $vhdFinalName = ""
+
     try {
         # Mount ISO and select the install.wim file
         $openIso = Mount-DiskImage -ImagePath (Resolve-Path $Iso) -StorageType ISO -PassThru | Get-Volume
@@ -31,50 +33,34 @@ function Write-WindowsIsoToVhd {
 
         Write-WimImageToDrive $wimPath $drive
 
-        # Rename VHD with details of installed version
-        $vhdFinalName = ""
-        Using-VHDRegistry "SOFTWARE", $drive {
-            $currentVersion = Get-ItemProperty "VHD:\Microsoft\Windows NT\CurrentVersion"
-
-            $buildLabEx = $currentVersion.BuildLabEx
-            $installType = $currentVersion.InstallationType
-            $editionId = $currentVersion.EditionID
-
-            # Is this ServerCore?
-            if ($installType -ilike "CORE") {
-                $editionId += "Core"
-            }
-
-            # What type of SKU are we?
-            if ($installType -ilike "SERVER") {
-                $skuFamily = "Server"
-            } elseif ($installType -ilike "CLIENT") {
-                $skuFamily = "Client"
-            } else {
-                $skuFamily = "Unknown"
-            }
-        }
-
-        $vhdFinalName = " $(Get-Date -f MM-dd-yyyy_HH_mm_ss)_$($buildLabEx)_$($skuFamily)_$($editionId)_$($openImage.ImageDefaultLanguage)"
-        $VhdPath = Rename-Item -Path (Resolve-Path $VhdPath).Path -NewName $vhdFinalName -Force
-
-        # Configure Windows to allow Remote Powershell
-        Using-VHDRegistry "SOFTWARE" $volume { 
+        # Configure Windows to allow Remote Powershell, required for Repave
+        Using-VHDRegistry "SOFTWARE" $drive { 
             $path = "VHD:\Microsoft\Windows\CurrentVersion\Policies\system"
             Set-ItemProperty $path -Name LocalAccountTokenFilterPolicy -Value 0
         }
 
-        Using-VHDRegistry "SYSTEM" $volume { 
+        Using-VHDRegistry "SYSTEM" $drive { 
             $current = Get-(Get-ItemProperty "VHD:\Select" -Name Current).Current
             $path = "VHD:\ControlSet00$current\Services\SharedAccess\Parameters\FirewallPolicy\FirewallRules"
         }
-
-        return $VhdPath
+        
+        # Get details of installed version
+        $imageDetails = Get-WindowsImageDetails $drive
+        Write-Verbose "Installed Image Details $($imageDetails | Format-Table | Out-String)"
+        $vhdFinalName = "$(Get-Date -f MM-dd-yyyy_HH_mm_ss)_$($imageDetails.BuildLabEx)_$($imageDetails.SkuFamily)_$($imageDetails.EditionId).vhdx"
 
     } finally {
         Dismount-DiskImage -ImagePath (Resolve-Path $Iso) -ErrorAction SilentlyContinue | Out-Null
         Dismount-DiskImage -ImagePath (Resolve-Path $VhdPath) -ErrorAction SilentlyContinue | Out-Null
     }
+
+    # Rename VHD with details of installed version
+    if ($vhdFinalName -ne '') {
+        Write-Verbose "Renaming VHD to '$vhdFinalName'"
+        $VhdPath = Rename-Item -Path (Resolve-Path $VhdPath).Path -NewName $vhdFinalName -Force
+    }
+
+    return $VhdPath
 }
 
 function Write-WimImageToDrive {
@@ -93,9 +79,7 @@ function Write-WimImageToDrive {
 
     )
 
-    $ProgressPreference = 'Continue'
-
-    $wimMessageCallback = {
+    $wimMessageCallback = [Microsoft.Wim.WimMessageCallback]{
         param (
             [Microsoft.Wim.WimMessageType]$messageType,
             [PSObject]$message,
@@ -104,14 +88,21 @@ function Write-WimImageToDrive {
 
         $imageName = $userData
 
-        if ($messageType -eq 'Process') {
-            Write-Verbose "[$imageName] Writing file '$($message.Path)'"
-        } elif ($messageType -eq 'Progress') {
-            Write-Progress -Activity "Applying $imageName" -PercentComplete $message.PercentComplete -SecondsRemaining $message.EstimatedTimeRemaining
-        } elif ($messageType -eq 'Warning') {
-            Write-Warning "[$imageName] $($message.Path) - $($message.Win32ErrorCode)"
-        } elif ($messageType -eq 'Error') {
-            Write-Error "[$imageName] $($message.Path) - $($message.Win32ErrorCode)"
+        if ($messageType -eq [Microsoft.Wim.WimMessageType]::Progress) {
+            $progressMessage = ($message -as [Microsoft.Wim.WimMessageProgress])
+            Write-Progress -Activity "Applying Windows Image - $wimImageName" -Status "Writing" -PercentComplete $progressMessage.PercentComplete
+        }
+        elseif ($messageType -eq [Microsoft.Wim.WimMessageType]::FileInfo) {
+            $fileInfoMessage = ($message -as [Microsoft.Wim.WimMessageFileInfo])
+            Write-Verbose "[$imageName] $($fileInfoMessage.Path)"
+        }
+        elseif ($messageType -eq [Microsoft.Wim.WimMessageType]::Warning) {
+            $warningMessage = ($message -as [Microsoft.Wim.WimMessageWarning])
+            Write-Warning "[$imageName] $($warningMessage.Path) - $($warningMessage.Win32ErrorCode)"
+        }
+        elseif ($messageType -eq [Microsoft.Wim.WimMessageType]::Error) {
+            $errorMessage = ($message -as [Microsoft.Wim.WimMessageError])
+            Write-Warning "[$imageName] $($errorMessage.Path) - $($errorMessage.Win32ErrorCode)"
         }
 
         return [Microsoft.Wim.WimMessageResult]::Success
@@ -123,7 +114,6 @@ function Write-WimImageToDrive {
 
     try {
         # Get a native handle on *.wim container
-        Write-Verbose "[Microsoft.Wim] Loading '$WimPath'"
         $wimFileHandle = [Microsoft.Wim.WimgApi]::CreateFile($WimPath, [Microsoft.Wim.WimFileAccess]::Read, 
             [Microsoft.Wim.WimCreationDisposition]::OpenExisting, [Microsoft.Wim.WimCreateFileOptions]::None, 
             [Microsoft.Wim.WimCompressionType]::None)
@@ -136,13 +126,17 @@ function Write-WimImageToDrive {
         $wimImageName = $wimInformation.WIM.IMAGE.NAME
 
         Write-Verbose "Applying Windows Image '$wimImageName'"
+        Write-Progress -Activity "Applying Windows Image - $wimImageName" -Status "Starting" -PercentComplete 0
 
         # Register callback to get progress information as applying an image can take several minutes
-        #$wimCallbackId = [Microsoft.Wim.WimgApi]::RegisterMessageCallback($wimFileHandle, $wimMessageCallback, $wimImageName)
+        $wimCallbackId = [Microsoft.Wim.WimgApi]::RegisterMessageCallback($wimFileHandle, $wimMessageCallback, $wimImageName)
         [Microsoft.Wim.WimgApi]::ApplyImage($wimImageHandle, $Drive, [Microsoft.Wim.WimApplyImageOptions]::Verify)
 
+        Write-Progress -Completed -Activity "Applying Windows Image - $wimImageName" -Status "Completed" 
+        Write-Verbose "Finished applying Windows Image '$wimImageName'"
+
     } catch {
-        Throw "Failed to apply WIM Image. $($_.Exception.Message)"
+        Throw "Failed to apply WIM Image. $($_.Exception)"
     } finally {
         if ($wimCallbackId -ge 0) {
            [Microsoft.Wim.WimgApi]::UnregisterMessageCallback($wimFileHandle, $wimMessageCallback)
@@ -161,3 +155,45 @@ function Write-WimImageToDrive {
 
 }
 
+function Get-WindowsImageDetails {
+    [CmdletBinding()]
+    param (
+        [Parameter(Position=1, Mandatory)]
+        [ValidateScript({Test-Path "$_\"})]
+        [ValidatePattern("^[A-Z]?:$")]
+        [string]$Drive
+    )
+
+    Using-VHDRegistry "SOFTWARE" $Drive {
+        $currentVersion = Get-ItemProperty "VHD:\Microsoft\Windows NT\CurrentVersion"
+
+        $buildLabEx = $currentVersion.BuildLabEx
+        $installType = $currentVersion.InstallationType
+        $editionId = $currentVersion.EditionID
+
+        # Is this ServerCore?
+        if ($installType -ilike "CORE") {
+            $editionId += "Core"
+        }
+
+        # What type of SKU are we?
+        $skuFamily = "Unknown"
+        if ($installType -ilike "SERVER") {
+            $skuFamily = "Server"
+        }
+        elseif ($installType -ilike "CLIENT") {
+            $skuFamily = "Client"
+        }
+
+        $result = @{
+            CurrentVersion = $currentVersion
+            BuildLabEx = $buildLabEx
+            InstallType = $installType
+            EditionId = $editionId
+            SkuFamily = $skuFamily
+        }
+
+        return $result
+    }
+
+}

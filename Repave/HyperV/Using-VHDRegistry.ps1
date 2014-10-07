@@ -1,5 +1,3 @@
-#Requires -Version 3.0
-
 function Using-VHDRegistry {
     [CmdletBinding()]
     param (
@@ -9,19 +7,29 @@ function Using-VHDRegistry {
         [Parameter(Position=1, Mandatory)]
         [ValidateScript({Test-Path "$_\"})]
         [ValidatePattern("^[A-Z]?:$")]
-        [string]$DriveLetter,
+        [string]$Drive,
 
         [Parameter(Position=2, Mandatory)]
-        [ScriptBlock]$Script
+        [ScriptBlock]$RegistryScript
     )
 
     try {
-        reg load HKLM\VHD_$Key "$DriveLetter\Windows\System32\config\$Key" | Out-Null
-        New-PSDrive -Name "VHD" -PSProvider Registry -Root HKLM\VHD_$Key
-        &$Script
+        $hiveLocation = "$Drive\Windows\System32\config\$Key"
+
+        & reg load HKLM\VHD_$Key (Resolve-Path $hiveLocation) | Out-Null
+
+        New-PSDrive -Name "VHD" -PSProvider Registry -Root "HKLM\VHD_$Key" | Out-Null
+        Write-Verbose "Mounted VHD Registry '$hiveLocation' as VHD:\"
+
+        try {
+            &$RegistryScript
+        } catch {
+            Write-Error "Error executing registry script $($_.Exception)"
+        }
+
     } finally {
-        Remove-PSDrive -Name "VHD"
-        # Force collect to release the handles to the loaded hive, otherwise reg unload will fail
-        [GC]::Collect($true) | reg unload HKLM\VHD_$Key 2>&1 | Out-Null
+        Remove-PSDrive -Name "VHD" -ErrorAction SilentlyContinue | Out-Null
+        # Force collect to release the handles to the loaded hive, otherwise reg unload *will* fail
+        [GC]::Collect($true) | & reg unload HKLM\VHD_$Key 2>&1 | Out-Null
     }
 }

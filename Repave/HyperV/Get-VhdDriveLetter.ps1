@@ -5,9 +5,7 @@ function Get-VhdDriveLetter
         [Parameter()]
         [ValidateScript({ Test-Path $_ })]
         [ValidatePattern("\.vhd(x)?$")]
-        [string]$VhdPath,
-
-        [string]$VolumeName
+        [string]$VhdPath
     )
 
     # Windows 8.0/8.1 needs to use ROOT\virtualization\v2
@@ -17,7 +15,7 @@ function Get-VhdDriveLetter
     
     $partitions = $disk.GetRelated("Win32_DiskPartition")
     $logicalDisks = $partitions | %{ $_.GetRelated("Win32_logicalDisk") }
-    $driveLetter = ($logicalDisks | Where {$_.VolumeName -eq $volumeName}).DeviceID
+    $drive = ($logicalDisks | Select -First 1).DeviceID
 
-    return $driveLetter
+    return $drive
 }

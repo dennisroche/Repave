@@ -3,7 +3,7 @@
 Repave
 ==========
 
-**NB:** This is **pre-pre-release**, still under <u>active development</u>. 
+**NB:** This is **pre-pre-release**, still under <u>active development</u>. If you are interesting in using the script, please drop a message on [Twitter](https://twitter.com/dennisroche).
 
 Repave is a PowerShell module that allows you to easily create a new Hyper-V Virtual Hard Disk (`*.vhdx`), apply Microsoft® Windows 8.0/8.1 and 10 image, and then configure that installation with a terse script using additional `Repave.*` modules and [OneGet](https://github.com/OneGet/).
 
@@ -41,8 +41,8 @@ Push-Location $PSScriptRoot
 Import-Module .\Repave\Repave.psd1
 
 $iso = ".\ISOs\en-gb_windows_8.1_professional_n_vl_with_update_x64_dvd_4050338.iso"
-New-Gen2Vhd -Size 25GB | Write-WindowsIsoToVhd -Iso $iso | Invoke-Repave {
-    # Stuff to install
+New-Gen2Vhd -Size 25GB | Write-WindowsIsoToVhd -Iso $iso | Invoke-Repave -InstallScript {
+    Write-Host "It is repaving time"
 }
 ```	
 

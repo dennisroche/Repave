@@ -31,7 +31,7 @@ function Write-WindowsIsoToVhd {
             Throw "Cannot find mount point $VhdPath"
         }
 
-        Write-WimImageToDrive $wimPath $drive
+        Write-WimImage -WimPath $wimPath -TargetPath $drive
 
         # Configure Windows to allow Remote Powershell, required for Repave
         Using-VHDRegistry "SOFTWARE" $drive { 
@@ -61,98 +61,6 @@ function Write-WindowsIsoToVhd {
     }
 
     return $VhdPath
-}
-
-function Write-WimImageToDrive {
-    
-    [CmdletBinding()]
-    param (
-        [Parameter(Position=0, Mandatory)]
-        [ValidateScript({ Test-Path $_ })]
-        [ValidatePattern("\.wim$")]
-        [string]$WimPath,
-
-        [Parameter(Position=1, Mandatory)]
-        [ValidateScript({Test-Path "$_\"})]
-        [ValidatePattern("^[A-Z]?:$")]
-        [string]$Drive
-
-    )
-
-    $wimMessageCallback = [Microsoft.Wim.WimMessageCallback]{
-        param (
-            [Microsoft.Wim.WimMessageType]$messageType,
-            [PSObject]$message,
-            [PSObject]$userData
-        )
-
-        $imageName = $userData
-
-        if ($messageType -eq [Microsoft.Wim.WimMessageType]::Progress) {
-            $progressMessage = ($message -as [Microsoft.Wim.WimMessageProgress])
-            Write-Progress -Activity "Applying Windows Image - $wimImageName" -Status "Writing" -PercentComplete $progressMessage.PercentComplete
-        }
-        elseif ($messageType -eq [Microsoft.Wim.WimMessageType]::FileInfo) {
-            $fileInfoMessage = ($message -as [Microsoft.Wim.WimMessageFileInfo])
-            Write-Verbose "[$imageName] $($fileInfoMessage.Path)"
-        }
-        elseif ($messageType -eq [Microsoft.Wim.WimMessageType]::Warning) {
-            $warningMessage = ($message -as [Microsoft.Wim.WimMessageWarning])
-            Write-Warning "[$imageName] $($warningMessage.Path) - $($warningMessage.Win32ErrorCode)"
-        }
-        elseif ($messageType -eq [Microsoft.Wim.WimMessageType]::Error) {
-            $errorMessage = ($message -as [Microsoft.Wim.WimMessageError])
-            Write-Warning "[$imageName] $($errorMessage.Path) - $($errorMessage.Win32ErrorCode)"
-        }
-
-        return [Microsoft.Wim.WimMessageResult]::Success
-    }
-
-    $wimFileHandle = $null
-    $wimImageHandle = $null
-    $wimCallbackId = -1
-
-    try {
-        # Get a native handle on *.wim container
-        $wimFileHandle = [Microsoft.Wim.WimgApi]::CreateFile($WimPath, [Microsoft.Wim.WimFileAccess]::Read, 
-            [Microsoft.Wim.WimCreationDisposition]::OpenExisting, [Microsoft.Wim.WimCreateFileOptions]::None, 
-            [Microsoft.Wim.WimCompressionType]::None)
-
-        # Always set a temporary path
-        [Microsoft.Wim.WimgApi]::SetTemporaryPath($wimFileHandle, $env:temp)
-
-        $wimImageHandle = [Microsoft.Wim.WimgApi]::LoadImage($wimFileHandle, 1)
-        [xml]$wimInformation = ([Microsoft.Wim.WimgApi]::GetImageInformation($wimFileHandle).CreateNavigator().InnerXml)
-        $wimImageName = $wimInformation.WIM.IMAGE.NAME
-
-        Write-Verbose "Applying Windows Image '$wimImageName'"
-        Write-Progress -Activity "Applying Windows Image - $wimImageName" -Status "Starting" -PercentComplete 0
-
-        # Register callback to get progress information as applying an image can take several minutes
-        $wimCallbackId = [Microsoft.Wim.WimgApi]::RegisterMessageCallback($wimFileHandle, $wimMessageCallback, $wimImageName)
-        [Microsoft.Wim.WimgApi]::ApplyImage($wimImageHandle, $Drive, [Microsoft.Wim.WimApplyImageOptions]::Verify)
-
-        Write-Progress -Completed -Activity "Applying Windows Image - $wimImageName" -Status "Completed" 
-        Write-Verbose "Finished applying Windows Image '$wimImageName'"
-
-    } catch {
-        Throw "Failed to apply WIM Image. $($_.Exception)"
-    } finally {
-        if ($wimCallbackId -ge 0) {
-           [Microsoft.Wim.WimgApi]::UnregisterMessageCallback($wimFileHandle, $wimMessageCallback)
-        }
-
-        if ($wimImageHandle -ne $null) {
-            $wimImageHandle.Close()
-            $wimImageHandle = $null
-        }
-
-        if ($wimFileHandle -ne $null) {
-            $wimFileHandle.Close()
-            $wimFileHandle = $null
-        }
-    }
-
 }
 
 function Get-WindowsImageDetails {

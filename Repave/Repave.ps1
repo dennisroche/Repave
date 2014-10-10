@@ -9,3 +9,4 @@ Get-ChildItem $PSScriptRoot -Recurse -Include *.ps1 -Exclude 'Repave.ps1' | %{
 Restore-NuGetPackages "$PSScriptRoot\packages.config"
 Import-Assembly "Microsoft.Win32Ex" | Out-Null
 Import-Assembly "Microsoft.Wim" | Out-Null
+Import-Assembly "Microsoft.Wim.Powershell" -AsModule | Out-Null

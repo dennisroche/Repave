@@ -26,28 +26,35 @@ function Write-WindowsIsoToVhd {
 
         # Mount VHD to apply Windows image
         Mount-DiskImage -ImagePath (Resolve-Path $VhdPath) -Access ReadWrite | Out-Null
-        $drive = Get-VhdDriveLetter (Resolve-Path $VhdPath)
-        if ($drive -eq '') {
-            Throw "Cannot find mount point $VhdPath"
-        }
+        $diskNumber = (Get-DiskImage (Resolve-Path $VhdPath) | Get-Disk).Number
+        $disk = Get-Disk -Number $diskNumber
 
+        Add-PartitionAccessPath -DiskNumber $diskNumber -PartitionNumber 2 -AssignDriveLetter
+        $driveSystem = $(Get-Partition -Disk $disk).AccessPaths[1]
+        $drive =  $(Get-Partition -Disk $disk).AccessPaths[2]
+
+        Write-Verbose "VHD Layout $(Get-Partition -Disk $disk | Out-String)"
+
+        # Apply Windows Image to VHD
         Write-WimImage -WimPath $wimPath -TargetPath $drive
 
-        # Configure Windows to allow Remote Powershell, required for Repave
-        Using-VHDRegistry "SOFTWARE" $drive { 
-            $path = "VHD:\Microsoft\Windows\CurrentVersion\Policies\system"
-            Set-ItemProperty $path -Name LocalAccountTokenFilterPolicy -Value 0
-        }
+        # Copy critical boot files to the system partition to create a new system BCD store
+        # "Self-Sustainable", i.e. contains a boot loader and does not depend on external files.
+        $driveSystemVolumeLetter = $driveSystem.TrimEnd('\')
+        $bcdBootParams = @(
+            "$($drive)Windows"
+            "/s $($driveSystemVolumeLetter)"
+            "/f UEFI"
+            "/v"
+        )
 
-        Using-VHDRegistry "SYSTEM" $drive { 
-            $current = Get-(Get-ItemProperty "VHD:\Select" -Name Current).Current
-            $path = "VHD:\ControlSet00$current\Services\SharedAccess\Parameters\FirewallPolicy\FirewallRules"
-        }
-        
+        Write-Verbose "Create a new system BCD store"
+        Start-Process bcdboot -ArgumentList $bcdBootParams -NoNewWindow | Out-Null
+
         # Get details of installed version
         $imageDetails = Get-WindowsImageDetails $drive
         Write-Verbose "Installed Image Details $($imageDetails | Format-Table | Out-String)"
-        $vhdFinalName = "$(Get-Date -f MM-dd-yyyy_HH_mm_ss)_$($imageDetails.BuildLabEx)_$($imageDetails.SkuFamily)_$($imageDetails.EditionId).vhdx"
+        $vhdFinalName = "Repave_$(Get-Date -f MM-dd-yyyy_HH_mm_ss)_$($imageDetails.BuildLabEx)_$($imageDetails.SkuFamily)_$($imageDetails.EditionId).vhdx"
 
     } finally {
         Dismount-DiskImage -ImagePath (Resolve-Path $Iso) -ErrorAction SilentlyContinue | Out-Null
@@ -67,8 +74,7 @@ function Get-WindowsImageDetails {
     [CmdletBinding()]
     param (
         [Parameter(Position=1, Mandatory)]
-        [ValidateScript({Test-Path "$_\"})]
-        [ValidatePattern("^[A-Z]?:$")]
+        [ValidateScript({Test-Path "$_"})]
         [string]$Drive
     )
 

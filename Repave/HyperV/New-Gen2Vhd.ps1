@@ -20,7 +20,7 @@ function New-Gen2Vhd {
 
     if ($VhdPath -eq '') {
         $guid = [Guid]::NewGuid()
-        $VhdPath = ".\$guid.vhdx"
+        $VhdPath = ".\temp_$guid.vhdx"
     }
 
     try {
@@ -40,8 +40,11 @@ function New-Gen2Vhd {
 
         # Mount VHD
         Write-Verbose "Mounting VHD '$VhdPath'"
-        $disk = Mount-DiskImage -ImagePath (Resolve-Path $VhdPath) -Access ReadWrite
+        Mount-DiskImage -ImagePath (Resolve-Path $VhdPath) -Access ReadWrite
         $diskNumber = (Get-DiskImage (Resolve-Path $VhdPath) | Get-Disk).Number
+        $disk = Get-Disk -Number $diskNumber
+
+        Write-Verbose "VHD Layout $(Get-Partition -Disk $disk | Out-String)"
 
         # Initialise GUID Partition Table (GPT)
         Write-Verbose "Initialise GUID Partition Table (GPT)"
@@ -50,22 +53,17 @@ function New-Gen2Vhd {
         # GPT disks that are used to boot the Windows operating system, the Extensible Firmware Interface (EFI) 
         # system partition must be the first partition on the disk, followed by the Microsoft Reserved partition.
         Write-Verbose "Create Extensible Firmware Interface (EFI) partition"
-        New-EfiPartition -DiskNumber $diskNumber -Size 100MB | Out-Null
-
-        # Initial Size of MSR is 32 MB on disks smaller than 16 GB and 128 MB on other disks. 
-        # The MSR partition is not visible within Microsoft Windows Disk Management snap-in, however 
-        # is listed with Microsoft Diskpart commandline utility.
-        Write-Verbose "Create Microsoft Reserved Partition (MSR) partition"
-        if ($Size -lt 16GB) {
-            New-MsrPartition -Disknumber $diskNumber -Size 32MB
-        } else {
-            New-MsrPartition -Disknumber $diskNumber -Size 128MB
-        }
+        New-EfiPartition -DiskNumber $diskNumber -Size 260MB | Out-Null
 
         # Create OS partition
         Write-Verbose "Create OS partition"
         New-Partition -DiskNumber $diskNumber -UseMaximumSize -AssignDriveLetter | 
-          Format-Volume -FileSystem NTFS -NewFileSystemLabel "System" -confirm:$false | Out-Null
+          Format-Volume -FileSystem NTFS -NewFileSystemLabel "Windows" -confirm:$false | Out-Null
+
+        $drive = $(Get-Partition -Disk $disk).AccessPaths[3]
+        Write-Verbose "$drive has been assigned to the Boot Volume"
+
+        Write-Verbose "VHD Layout $(Get-Partition -Disk $disk | Out-String)"
 
     } catch {
         Throw "Failed to create $VhdPath. $($_.Exception.Message)"
@@ -80,33 +78,26 @@ function New-Gen2Vhd {
 
 function New-EfiPartition {
     param (
-        [Parameter(Position=0, Mandatory=$true)]
+        [Parameter(Position=0, Mandatory)]
         [UInt32]$DiskNumber,
 
         [ValidateRange(100MB, 300MB)]
-        [UInt64]$Size=100GB
+        [UInt64]$Size=100MB
     )
 
-    $partition = New-Partition -DiskNumber $DiskNumber -GptType '{c12a7328-f81f-11d2-ba4b-00a0c93ec93bc}' -Size $Size
-    $partitionNumber = $partition.PartitionNumber
+    # Create EFI partition and a basic data partition (BDP)
+    $disk = Get-Disk -Number $DiskNumber
+    $partitionSystem = New-Partition -DiskNumber $DiskNumber -GptType '{c12a7328-f81f-11d2-ba4b-00a0c93ec93bc}' -Size $Size
+    $partitionSystemNumber = $partitionSystem.PartitionNumber
 
 @"
-select disk $diskNumber
-select partition $partitionNumber
+select disk $DiskNumber
+select partition $partitionSystemNumber
 format quick fs=fat32 label=System
 exit
-"@ | diskpart | Out-Null
+"@ | diskpart | %{ Write-Verbose "[DiskPart] $_" }
 
-}
-
-function New-MsrPartition {
-    param (
-        [Parameter(Position=0, Mandatory=$true)]
-        [UInt32]$DiskNumber,
-
-        [ValidateSet(32MB, 128MB)]
-        [UInt64]$Size=32GB
-    )
-
-    New-Partition -DiskNumber $diskNumber -GptType '{e3c9e316-0b5c-4db8-817d-f92df00215ae}' -Size $Size | Out-Null
+    $partitionSystem | Add-PartitionAccessPath -AssignDriveLetter
+    $driveSystem = $(Get-Partition -Disk $disk).AccessPaths[1]
+    Write-Verbose "$driveSystem has been assigned to the System Volume"
 }

@@ -1,9 +1,7 @@
-#Requires -Version 3.0
-
 function With-AutorunDisabled {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory)]
         [ScriptBlock]$script
     )
 

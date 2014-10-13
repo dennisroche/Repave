@@ -5,8 +5,7 @@ function Using-VHDRegistry {
         [string]$Key,
 
         [Parameter(Position=1, Mandatory)]
-        [ValidateScript({Test-Path "$_\"})]
-        [ValidatePattern("^[A-Z]?:$")]
+        [ValidateScript({Test-Path "$_"})]
         [string]$Drive,
 
         [Parameter(Position=2, Mandatory)]
@@ -14,7 +13,7 @@ function Using-VHDRegistry {
     )
 
     try {
-        $hiveLocation = "$Drive\Windows\System32\config\$Key"
+        $hiveLocation = "$($Drive)Windows\System32\config\$Key"
 
         & reg load HKLM\VHD_$Key (Resolve-Path $hiveLocation) | Out-Null
 

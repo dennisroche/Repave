@@ -49,26 +49,18 @@ New-Gen2Vhd -Size 25GB | Write-WindowsIsoToVhd -Iso $iso | Invoke-Repave -Instal
 Roadmap
 ---------------
 
-**Next**
+Roadmap is up on [Trello](https://trello.com/b/v8AGGlUd).
 
-* Implement support for OneGet
-* Add modules to configure various settings in Windows
-* Add examples of machine configurations
-* Create Nuget package
-
-**Future**
-
-* Boot VHD configuration
-* Add integration tests
-* Publish module on PsGet
-* Add support for Microsoft® Windows 7, i.e. non-UEFI based virtual machines
-* VHD restart to complete package instalation
 
 FAQ
 ---------------
 
+
+**Q:** Why Powershell?
+> **A:** PowerShell already contains all the nuts and bolts required to make overarching configuration changes to entire systems.
+
 **Q:** How is Repave different from other solutions?
-> **A:** The focus is on creating Hyper-V machine configurations, not your current configuration. It is terse and repeatable. It also uses [OneGet](https://github.com/OneGet/) at the core, which is the new package management solution from Microsoft.
+> **A:** The focus is on creating Hyper-V machine configurations, not your current configuration. It is terse and repeatable. It is also built using Powershell 4.0. 
 
 **Q:** What is wrong with Chocolately?
 > **A:** Nothing, as long you can <u>trust the packages that you installing</u>. I personally have been burnt before by a package installing more than described. 
